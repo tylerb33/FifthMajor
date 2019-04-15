@@ -7,6 +7,9 @@
 # Only exists if Bazel was run
 /bazel-out
 
+# values dir
+FifthMajor/src/app/values
+
 # dependencies
 /node_modules
 
