@@ -8,11 +8,19 @@ import { MaterialModule } from './material';
 import { MainNavComponent } from './main-nav/main-nav.component';
 import { LayoutModule } from '@angular/cdk/layout';
 import { MatToolbarModule, MatButtonModule, MatSidenavModule, MatIconModule, MatListModule } from '@angular/material';
+import { TeeTimesComponent } from './tee-times/tee-times.component';
+import { TrackJacketComponent } from './track-jacket/track-jacket.component';
+import { PastChampsComponent } from './past-champs/past-champs.component';
+import { AddScoreComponent } from './add-score/add-score.component';
 
 @NgModule({
   declarations: [
     AppComponent,
-    MainNavComponent
+    MainNavComponent,
+    TeeTimesComponent,
+    TrackJacketComponent,
+    PastChampsComponent,
+    AddScoreComponent,
   ],
   imports: [
     BrowserModule,

@@ -1,7 +1,5 @@
 
-.sidenav-container {
-  height: 100%;
-}
+
 
 .sidenav {
   width: 200px;
@@ -30,4 +28,12 @@
   margin: 0 10px;
   color: white;
   text-decoration: none;
+}
+
+@media only screen and (max-width: 768px) {
+
+.sidenav-container {
+  height: 100%;
+}
+
 }
