@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(npm create:*)",
+      "Bash(source ~/.zshrc)",
+      "Bash(source ~/.bashrc)",
+      "Bash(PATH=\"$HOME/.local/node/bin:$PATH\" npm run build:*)",
+      "Bash(PATH=\"$HOME/.local/node/bin:$PATH\" npm run dev:*)"
+    ]
+  }
+}
