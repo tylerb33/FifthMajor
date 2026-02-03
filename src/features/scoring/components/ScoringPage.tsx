@@ -209,12 +209,6 @@ export function ScoringPage() {
   }
 
   // Navigation
-  const goToHole = (hole: number) => {
-    if (hole >= 1 && hole <= 18) {
-      setCurrentHole(hole)
-    }
-  }
-
   const goToPreviousHole = useCallback(() => {
     if (currentHole > 1) {
       setCurrentHole(h => h - 1)

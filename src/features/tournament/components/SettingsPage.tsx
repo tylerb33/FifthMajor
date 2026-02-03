@@ -650,9 +650,8 @@ function EditCourseDialog({ courseId, onOpenChange }: EditCourseDialogProps) {
 
   // Update holePars when holes load
   if (holes && holes.length > 0) {
-    const currentPars = holes.map(h => h.par)
     const storedPars = holePars
-    const needsUpdate = holes.some((h, i) => {
+    const needsUpdate = holes.some((h) => {
       const idx = h.hole_number - 1
       return storedPars[idx] !== h.par
     })
@@ -682,7 +681,6 @@ function EditCourseDialog({ courseId, onOpenChange }: EditCourseDialogProps) {
     if (!courseId || !holes) return
 
     setIsSaving(true)
-    const now = new Date().toISOString()
 
     try {
       // Update course total par
