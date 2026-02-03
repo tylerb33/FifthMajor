@@ -149,7 +149,11 @@ export function LeaderboardPage() {
     return (
       <div className="flex min-h-[calc(100vh-7rem)] items-center justify-center p-4">
         <div className="text-center text-muted-foreground">
-          <Trophy className="mx-auto mb-4 h-12 w-12" />
+          <img
+            src="/FifthMajorLogo.png"
+            alt="Fifth Major"
+            className="mx-auto mb-4 h-24 w-auto object-contain"
+          />
           <p>No tournament selected</p>
         </div>
       </div>

@@ -12,6 +12,9 @@ const navItems = [
   { path: '/settings', icon: Settings, label: 'Settings' },
 ]
 
+// Routes that share the swipeable view
+const swipeableRoutes = ['/leaderboard', '/scoring']
+
 interface LayoutProps {
   children: React.ReactNode
 }
@@ -23,23 +26,31 @@ export function Layout({ children }: LayoutProps) {
   // Don't show nav on home/join screens
   const showNav = currentTournamentId && !['/', '/join', '/create'].includes(location.pathname)
 
+  // Check if we're on a swipeable route (needs different layout)
+  const isSwipeableRoute = swipeableRoutes.includes(location.pathname)
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 items-center justify-between px-4">
           <Link to="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Trophy className="h-5 w-5" />
-            </div>
-            <span className="font-semibold">FifthMajor</span>
+            <img
+              src="/FifthMajorLogo.png"
+              alt="Fifth Major"
+              className="h-10 w-auto object-contain"
+            />
           </Link>
           <SyncIndicator />
         </div>
       </header>
 
       {/* Main content */}
-      <main className="flex-1 pb-20">
+      <main className={cn(
+        "flex-1",
+        // Swipeable view manages its own bottom padding for the dot indicators
+        isSwipeableRoute ? "pb-16" : "pb-20"
+      )}>
         {children}
       </main>
 
@@ -48,6 +59,7 @@ export function Layout({ children }: LayoutProps) {
         <nav className="fixed bottom-0 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="flex h-16 items-center justify-around px-2">
             {navItems.map(({ path, icon: Icon, label }) => {
+              // For swipeable routes, highlight both leaderboard and scoring based on current path
               const isActive = location.pathname === path
               return (
                 <Link

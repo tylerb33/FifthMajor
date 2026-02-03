@@ -1,12 +1,11 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
+import { SwipeableScoreView } from '@/components/SwipeableScoreView'
 import { HomePage } from '@/features/tournament/components/HomePage'
 import { CreateTournament } from '@/features/tournament/components/CreateTournament'
 import { SettingsPage } from '@/features/tournament/components/SettingsPage'
 import { PlayersPage } from '@/features/players/components/PlayersPage'
-import { ScoringPage } from '@/features/scoring/components/ScoringPage'
 import { ScorecardPage } from '@/features/scoring/components/ScorecardPage'
-import { LeaderboardPage } from '@/features/leaderboard/components/LeaderboardPage'
 import { useTournamentStore } from '@/stores/tournamentStore'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -27,11 +26,12 @@ function App() {
         <Route path="/create" element={<CreateTournament />} />
 
         {/* Protected routes - require tournament context */}
+        {/* Leaderboard and Scoring share a swipeable view */}
         <Route
           path="/leaderboard"
           element={
             <ProtectedRoute>
-              <LeaderboardPage />
+              <SwipeableScoreView />
             </ProtectedRoute>
           }
         />
@@ -39,7 +39,7 @@ function App() {
           path="/scoring"
           element={
             <ProtectedRoute>
-              <ScoringPage />
+              <SwipeableScoreView />
             </ProtectedRoute>
           }
         />

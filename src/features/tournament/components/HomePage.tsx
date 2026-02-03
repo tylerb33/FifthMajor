@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Trophy, Plus, LogIn } from 'lucide-react'
+import { Plus, LogIn } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -71,21 +71,29 @@ export function HomePage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center p-4">
+    <div className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center p-4 bg-gradient-to-b from-green-200 via-white to-amber-50/30">
       <div className="w-full max-w-sm space-y-8">
         {/* Logo/Hero */}
-        <div className="text-center">
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-            <Trophy className="h-10 w-10" />
+        <div className="text-center space-y-4">
+          <div className="relative">
+            {/* Subtle glow behind logo */}
+            <div className="absolute inset-0 blur-2xl opacity-20 bg-gradient-to-r from-green-500 to-amber-500 -z-10 scale-150" />
+            <img
+              src="/FifthMajorLogo.png"
+              alt="Fifth Major"
+              className="mx-auto h-36 w-auto object-contain drop-shadow-xl"
+            />
           </div>
-          <h1 className="text-3xl font-bold">FifthMajor</h1>
-          <p className="mt-2 text-muted-foreground">
-            Golf tournament scoring made simple
+          <p
+            className="text-xl text-foreground/60 italic tracking-wide leading-relaxed"
+            style={{ fontFamily: '"Playfair Display", serif' }}
+          >
+            A tradition like any other
           </p>
         </div>
 
         {/* Join Tournament */}
-        <Card>
+        <Card className="border-2 border-primary/10 shadow-lg bg-gradient-to-br from-white to-green-50/30">
           <CardHeader className="pb-4">
             <CardTitle className="text-lg">Join Tournament</CardTitle>
             <CardDescription>Enter the share code to join</CardDescription>
@@ -98,13 +106,13 @@ export function HomePage() {
                 placeholder="e.g., GOLF24"
                 value={shareCode}
                 onChange={(e) => setShareCode(e.target.value.toUpperCase())}
-                className="text-center text-lg tracking-widest"
+                className="text-center text-lg tracking-widest font-semibold bg-green-50/30 border-primary/20 focus:border-primary/50 focus:ring-primary/20"
                 maxLength={6}
               />
               {error && <p className="text-sm text-destructive">{error}</p>}
             </div>
             <Button
-              className="w-full"
+              className="w-full shadow-md hover:shadow-lg transition-all"
               onClick={handleJoin}
               disabled={isJoining}
             >
@@ -115,13 +123,13 @@ export function HomePage() {
         </Card>
 
         {/* Create Tournament */}
-        <div className="text-center">
+        <div className="text-center p-6 rounded-lg bg-gradient-to-br from-amber-50/50 to-transparent border border-amber-200/30">
           <p className="mb-3 text-sm text-muted-foreground">
             Or start a new tournament
           </p>
           <Button
             variant="outline"
-            className="w-full"
+            className="w-full border-primary/20 hover:bg-primary/5"
             onClick={() => navigate('/create')}
           >
             <Plus className="mr-2 h-4 w-4" />

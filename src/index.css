@@ -67,6 +67,17 @@
   }
 }
 
+/* Hide scrollbar but keep functionality */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* Prevent pull-to-refresh on mobile */
 html {
   overscroll-behavior-y: contain;
@@ -78,4 +89,55 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
+}
+
+/* Celebration animations */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0;
+  }
+  15%, 40% {
+    opacity: 1;
+  }
+}
+
+@keyframes score-pop {
+  0% {
+    transform: scale(0) rotate(-10deg);
+    opacity: 0;
+  }
+  20% {
+    transform: scale(1.2) rotate(5deg);
+    opacity: 1;
+  }
+  40% {
+    transform: scale(0.95) rotate(-2deg);
+  }
+  60% {
+    transform: scale(1.05) rotate(1deg);
+  }
+  80%, 100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes score-pop-out {
+  0%, 70% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 1.5s ease-in-out;
+}
+
+.animate-score-pop {
+  animation: score-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards,
+             score-pop-out 2s ease-in forwards;
 }

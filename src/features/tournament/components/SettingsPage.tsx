@@ -32,6 +32,7 @@ export function SettingsPage() {
   const [showPinDialog, setShowPinDialog] = useState(false)
   const [showCourseDialog, setShowCourseDialog] = useState(false)
   const [showRoundDialog, setShowRoundDialog] = useState(false)
+  const [editingCourseId, setEditingCourseId] = useState<string | null>(null)
   const [pinInput, setPinInput] = useState('')
   const [pinError, setPinError] = useState('')
 
@@ -165,13 +166,17 @@ export function SettingsPage() {
           {courses && courses.length > 0 ? (
             <div className="space-y-2">
               {courses.map(course => (
-                <div key={course.id} className="flex items-center justify-between rounded-lg border p-3">
+                <button
+                  key={course.id}
+                  onClick={() => handleAdminAction(() => setEditingCourseId(course.id))}
+                  className="flex w-full items-center justify-between rounded-lg border p-3 text-left hover:bg-muted/50 transition-colors"
+                >
                   <div>
                     <div className="font-medium">{course.name}</div>
                     <div className="text-sm text-muted-foreground">Par {course.par}</div>
                   </div>
                   <MapPin className="h-4 w-4 text-muted-foreground" />
-                </div>
+                </button>
               ))}
             </div>
           ) : (
@@ -275,6 +280,12 @@ export function SettingsPage() {
         courses={courses || []}
         existingRounds={rounds?.length || 0}
       />
+
+      {/* Edit Course Dialog */}
+      <EditCourseDialog
+        courseId={editingCourseId}
+        onOpenChange={(open) => !open && setEditingCourseId(null)}
+      />
     </div>
   )
 }
@@ -285,9 +296,30 @@ interface AddCourseDialogProps {
 }
 
 function AddCourseDialog({ open, onOpenChange }: AddCourseDialogProps) {
+  const [step, setStep] = useState<'info' | 'holes'>('info')
   const [name, setName] = useState('')
-  const [par, setPar] = useState('72')
+  const [holePars, setHolePars] = useState<number[]>(Array(18).fill(4))
   const [isAdding, setIsAdding] = useState(false)
+
+  const totalPar = holePars.reduce((sum, p) => sum + p, 0)
+  const frontNine = holePars.slice(0, 9).reduce((sum, p) => sum + p, 0)
+  const backNine = holePars.slice(9).reduce((sum, p) => sum + p, 0)
+
+  const updateHolePar = (index: number, par: number) => {
+    const newPars = [...holePars]
+    newPars[index] = Math.max(3, Math.min(6, par))
+    setHolePars(newPars)
+  }
+
+  const handleNext = () => {
+    if (name.trim()) {
+      setStep('holes')
+    }
+  }
+
+  const handleBack = () => {
+    setStep('info')
+  }
 
   const handleAdd = async () => {
     if (!name.trim()) return
@@ -301,7 +333,7 @@ function AddCourseDialog({ open, onOpenChange }: AddCourseDialogProps) {
       if (isSupabaseConfigured()) {
         const { data, error } = await supabase
           .from('courses')
-          .insert({ name: name.trim(), par: parseInt(par) || 72 })
+          .insert({ name: name.trim(), par: totalPar })
           .select()
           .single()
 
@@ -309,11 +341,10 @@ function AddCourseDialog({ open, onOpenChange }: AddCourseDialogProps) {
         courseId = data.id
         await db.courses.put({ ...data, synced_at: now })
 
-        // Create default 18 holes
-        const holes = Array.from({ length: 18 }, (_, i) => ({
+        const holes = holePars.map((par, i) => ({
           course_id: courseId,
           hole_number: i + 1,
-          par: i < 4 || i === 8 || i === 9 || i === 13 || i === 17 ? 4 : i === 4 || i === 14 ? 5 : 3,
+          par,
           yardage: null
         }))
 
@@ -332,24 +363,25 @@ function AddCourseDialog({ open, onOpenChange }: AddCourseDialogProps) {
         await db.courses.put({
           id: courseId,
           name: name.trim(),
-          par: parseInt(par) || 72,
+          par: totalPar,
           created_at: now
         })
 
-        // Create default 18 holes locally
-        for (let i = 1; i <= 18; i++) {
+        for (let i = 0; i < 18; i++) {
           await db.holes.put({
             id: generateLocalId(),
             course_id: courseId,
-            hole_number: i,
-            par: 4, // Default to par 4
+            hole_number: i + 1,
+            par: holePars[i],
             yardage: null
           })
         }
       }
 
+      // Reset form
       setName('')
-      setPar('72')
+      setHolePars(Array(18).fill(4))
+      setStep('info')
       onOpenChange(false)
     } catch (err) {
       console.error('Error adding course:', err)
@@ -358,34 +390,120 @@ function AddCourseDialog({ open, onOpenChange }: AddCourseDialogProps) {
     }
   }
 
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      // Reset form when closing
+      setStep('info')
+      setName('')
+      setHolePars(Array(18).fill(4))
+    }
+    onOpenChange(open)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add Course</DialogTitle>
-          <DialogDescription>Add a golf course for tournament rounds</DialogDescription>
+          <DialogTitle>{step === 'info' ? 'Add Course' : 'Set Hole Pars'}</DialogTitle>
+          <DialogDescription>
+            {step === 'info'
+              ? 'Add a golf course for tournament rounds'
+              : `${name} - Total Par: ${totalPar}`}
+          </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Course Name</Label>
-            <Input
-              placeholder="e.g., Pine Valley Golf Club"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+
+        {step === 'info' ? (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Course Name</Label>
+              <Input
+                placeholder="e.g., Pine Valley Golf Club"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <Button className="w-full" onClick={handleNext} disabled={!name.trim()}>
+              Next: Set Hole Pars
+            </Button>
           </div>
-          <div className="space-y-2">
-            <Label>Total Par</Label>
-            <Input
-              type="number"
-              value={par}
-              onChange={(e) => setPar(e.target.value)}
-            />
+        ) : (
+          <div className="space-y-4">
+            {/* Front Nine */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Front Nine</Label>
+                <span className="text-sm text-muted-foreground">Par {frontNine}</span>
+              </div>
+              <div className="grid grid-cols-9 gap-1">
+                {holePars.slice(0, 9).map((par, i) => (
+                  <div key={i} className="flex flex-col items-center">
+                    <span className="text-[10px] text-muted-foreground mb-1">{i + 1}</span>
+                    <select
+                      value={par}
+                      onChange={(e) => updateHolePar(i, parseInt(e.target.value))}
+                      className="w-full h-10 text-center text-sm font-medium border rounded-md bg-background"
+                    >
+                      <option value={3}>3</option>
+                      <option value={4}>4</option>
+                      <option value={5}>5</option>
+                      <option value={6}>6</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Back Nine */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Back Nine</Label>
+                <span className="text-sm text-muted-foreground">Par {backNine}</span>
+              </div>
+              <div className="grid grid-cols-9 gap-1">
+                {holePars.slice(9).map((par, i) => (
+                  <div key={i + 9} className="flex flex-col items-center">
+                    <span className="text-[10px] text-muted-foreground mb-1">{i + 10}</span>
+                    <select
+                      value={par}
+                      onChange={(e) => updateHolePar(i + 9, parseInt(e.target.value))}
+                      className="w-full h-10 text-center text-sm font-medium border rounded-md bg-background"
+                    >
+                      <option value={3}>3</option>
+                      <option value={4}>4</option>
+                      <option value={5}>5</option>
+                      <option value={6}>6</option>
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Summary */}
+            <div className="flex items-center justify-center gap-4 py-2 bg-muted rounded-lg">
+              <div className="text-center">
+                <div className="text-lg font-bold">{frontNine}</div>
+                <div className="text-xs text-muted-foreground">Out</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold">{backNine}</div>
+                <div className="text-xs text-muted-foreground">In</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold text-primary">{totalPar}</div>
+                <div className="text-xs text-muted-foreground">Total</div>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={handleBack}>
+                Back
+              </Button>
+              <Button className="flex-1" onClick={handleAdd} disabled={isAdding}>
+                {isAdding ? 'Adding...' : 'Add Course'}
+              </Button>
+            </div>
           </div>
-          <Button className="w-full" onClick={handleAdd} disabled={isAdding || !name.trim()}>
-            {isAdding ? 'Adding...' : 'Add Course'}
-          </Button>
-        </div>
+        )}
       </DialogContent>
     </Dialog>
   )
@@ -483,6 +601,205 @@ function AddRoundDialog({ open, onOpenChange, tournamentId, courses, existingRou
           </div>
           <Button className="w-full" onClick={handleAdd} disabled={isAdding || !courseId || !date}>
             {isAdding ? 'Adding...' : 'Add Round'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+interface EditCourseDialogProps {
+  courseId: string | null
+  onOpenChange: (open: boolean) => void
+}
+
+function EditCourseDialog({ courseId, onOpenChange }: EditCourseDialogProps) {
+  const [holePars, setHolePars] = useState<number[]>(Array(18).fill(4))
+  const [isSaving, setIsSaving] = useState(false)
+  const [hasChanges, setHasChanges] = useState(false)
+
+  const course = useLiveQuery(
+    () => courseId ? db.courses.get(courseId) : undefined,
+    [courseId]
+  )
+
+  const holes = useLiveQuery(
+    async () => {
+      if (!courseId) return []
+      return db.holes
+        .where('course_id')
+        .equals(courseId)
+        .sortBy('hole_number')
+    },
+    [courseId]
+  )
+
+  // Load hole pars when holes data changes
+  useState(() => {
+    if (holes && holes.length > 0) {
+      const pars = Array(18).fill(4)
+      holes.forEach(h => {
+        if (h.hole_number >= 1 && h.hole_number <= 18) {
+          pars[h.hole_number - 1] = h.par
+        }
+      })
+      setHolePars(pars)
+      setHasChanges(false)
+    }
+  })
+
+  // Update holePars when holes load
+  if (holes && holes.length > 0) {
+    const currentPars = holes.map(h => h.par)
+    const storedPars = holePars
+    const needsUpdate = holes.some((h, i) => {
+      const idx = h.hole_number - 1
+      return storedPars[idx] !== h.par
+    })
+    if (needsUpdate && !hasChanges) {
+      const pars = Array(18).fill(4)
+      holes.forEach(h => {
+        if (h.hole_number >= 1 && h.hole_number <= 18) {
+          pars[h.hole_number - 1] = h.par
+        }
+      })
+      setHolePars(pars)
+    }
+  }
+
+  const totalPar = holePars.reduce((sum, p) => sum + p, 0)
+  const frontNine = holePars.slice(0, 9).reduce((sum, p) => sum + p, 0)
+  const backNine = holePars.slice(9).reduce((sum, p) => sum + p, 0)
+
+  const updateHolePar = (index: number, par: number) => {
+    const newPars = [...holePars]
+    newPars[index] = Math.max(3, Math.min(6, par))
+    setHolePars(newPars)
+    setHasChanges(true)
+  }
+
+  const handleSave = async () => {
+    if (!courseId || !holes) return
+
+    setIsSaving(true)
+    const now = new Date().toISOString()
+
+    try {
+      // Update course total par
+      if (isSupabaseConfigured()) {
+        await supabase
+          .from('courses')
+          .update({ par: totalPar })
+          .eq('id', courseId)
+      }
+      await db.courses.update(courseId, { par: totalPar })
+
+      // Update each hole
+      for (const hole of holes) {
+        const newPar = holePars[hole.hole_number - 1]
+        if (hole.par !== newPar) {
+          if (isSupabaseConfigured()) {
+            await supabase
+              .from('holes')
+              .update({ par: newPar })
+              .eq('id', hole.id)
+          }
+          await db.holes.update(hole.id, { par: newPar })
+        }
+      }
+
+      setHasChanges(false)
+      onOpenChange(false)
+    } catch (err) {
+      console.error('Error saving course:', err)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={!!courseId} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{course?.name || 'Edit Course'}</DialogTitle>
+          <DialogDescription>
+            Edit hole pars - Total Par: {totalPar}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Front Nine */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Front Nine</Label>
+              <span className="text-sm text-muted-foreground">Par {frontNine}</span>
+            </div>
+            <div className="grid grid-cols-9 gap-1">
+              {holePars.slice(0, 9).map((par, i) => (
+                <div key={i} className="flex flex-col items-center">
+                  <span className="text-[10px] text-muted-foreground mb-1">{i + 1}</span>
+                  <select
+                    value={par}
+                    onChange={(e) => updateHolePar(i, parseInt(e.target.value))}
+                    className="w-full h-10 text-center text-sm font-medium border rounded-md bg-background"
+                  >
+                    <option value={3}>3</option>
+                    <option value={4}>4</option>
+                    <option value={5}>5</option>
+                    <option value={6}>6</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Back Nine */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Back Nine</Label>
+              <span className="text-sm text-muted-foreground">Par {backNine}</span>
+            </div>
+            <div className="grid grid-cols-9 gap-1">
+              {holePars.slice(9).map((par, i) => (
+                <div key={i + 9} className="flex flex-col items-center">
+                  <span className="text-[10px] text-muted-foreground mb-1">{i + 10}</span>
+                  <select
+                    value={par}
+                    onChange={(e) => updateHolePar(i + 9, parseInt(e.target.value))}
+                    className="w-full h-10 text-center text-sm font-medium border rounded-md bg-background"
+                  >
+                    <option value={3}>3</option>
+                    <option value={4}>4</option>
+                    <option value={5}>5</option>
+                    <option value={6}>6</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div className="flex items-center justify-center gap-4 py-2 bg-muted rounded-lg">
+            <div className="text-center">
+              <div className="text-lg font-bold">{frontNine}</div>
+              <div className="text-xs text-muted-foreground">Out</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-bold">{backNine}</div>
+              <div className="text-xs text-muted-foreground">In</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-bold text-primary">{totalPar}</div>
+              <div className="text-xs text-muted-foreground">Total</div>
+            </div>
+          </div>
+
+          <Button
+            className="w-full"
+            onClick={handleSave}
+            disabled={isSaving || !hasChanges}
+          >
+            {isSaving ? 'Saving...' : hasChanges ? 'Save Changes' : 'No Changes'}
           </Button>
         </div>
       </DialogContent>
