@@ -5,13 +5,15 @@ interface TournamentState {
   // Current tournament context
   currentTournamentId: string | null
   currentRoundId: string | null
-  currentPlayerId: string | null // Tournament player ID for score entry
+  currentPlayerId: string | null // Tournament player ID for score entry (whose scores are being edited)
+  identityPlayerId: string | null // Tournament player ID for "who you are" (determines group permissions)
   isAdmin: boolean
 
   // Actions
   setCurrentTournament: (id: string | null) => void
   setCurrentRound: (id: string | null) => void
   setCurrentPlayer: (id: string | null) => void
+  setIdentityPlayer: (id: string | null) => void
   setIsAdmin: (isAdmin: boolean) => void
   verifyAdminPin: (pin: string, correctPin: string) => boolean
   clearSession: () => void
@@ -23,11 +25,13 @@ export const useTournamentStore = create<TournamentState>()(
       currentTournamentId: null,
       currentRoundId: null,
       currentPlayerId: null,
+      identityPlayerId: null,
       isAdmin: false,
 
       setCurrentTournament: (id) => set({ currentTournamentId: id }),
       setCurrentRound: (id) => set({ currentRoundId: id }),
       setCurrentPlayer: (id) => set({ currentPlayerId: id }),
+      setIdentityPlayer: (id) => set({ identityPlayerId: id, currentPlayerId: id }), // Setting identity also sets current player
       setIsAdmin: (isAdmin) => set({ isAdmin }),
 
       verifyAdminPin: (pin, correctPin) => {
@@ -42,6 +46,7 @@ export const useTournamentStore = create<TournamentState>()(
         currentTournamentId: null,
         currentRoundId: null,
         currentPlayerId: null,
+        identityPlayerId: null,
         isAdmin: false
       })
     }),
@@ -51,7 +56,8 @@ export const useTournamentStore = create<TournamentState>()(
       partialize: (state) => ({
         currentTournamentId: state.currentTournamentId,
         currentRoundId: state.currentRoundId,
-        currentPlayerId: state.currentPlayerId
+        currentPlayerId: state.currentPlayerId,
+        identityPlayerId: state.identityPlayerId
         // Don't persist isAdmin for security
       })
     }

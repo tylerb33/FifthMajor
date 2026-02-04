@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, AlertCircle, Users, Shield, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -9,7 +9,18 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel,
 } from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { useTournamentStore } from '@/stores/tournamentStore'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, generateLocalId, type LocalScore } from '@/lib/db/schema'
@@ -64,9 +75,29 @@ function useSwipe(onSwipeLeft: () => void, onSwipeRight: () => void) {
 
 export function ScoringPage() {
   const navigate = useNavigate()
-  const { currentTournamentId, currentRoundId, currentPlayerId, setCurrentRound, setCurrentPlayer } = useTournamentStore()
+  const {
+    currentTournamentId,
+    currentRoundId,
+    currentPlayerId,
+    identityPlayerId,
+    isAdmin,
+    setCurrentRound,
+    setCurrentPlayer,
+    setIdentityPlayer,
+    verifyAdminPin
+  } = useTournamentStore()
   const [currentHole, setCurrentHole] = useState(1)
   const [hasAutoSelected, setHasAutoSelected] = useState(false)
+  const [showPinDialog, setShowPinDialog] = useState(false)
+  const [pinInput, setPinInput] = useState('')
+  const [pinError, setPinError] = useState('')
+  const [pendingPlayerId, setPendingPlayerId] = useState<string | null>(null)
+
+  // Fetch tournament for admin PIN
+  const tournament = useLiveQuery(
+    () => currentTournamentId ? db.tournaments.get(currentTournamentId) : undefined,
+    [currentTournamentId]
+  )
 
   // Fetch available rounds with course info
   const rounds = useLiveQuery(
@@ -110,6 +141,57 @@ export function ScoringPage() {
     },
     [currentTournamentId]
   )
+
+  // Get identity player's info (for group-based permissions)
+  const identityPlayer = tournamentPlayers?.find(tp => tp.id === identityPlayerId)
+  const identityGroupNumber = identityPlayer?.group_number
+
+  // Group players by group number
+  const playersByGroup = (tournamentPlayers || []).reduce((acc, tp) => {
+    const group = tp.group_number || 1
+    if (!acc[group]) acc[group] = []
+    acc[group].push(tp)
+    return acc
+  }, {} as Record<number, typeof tournamentPlayers>)
+
+  // Determine which players current user can score for
+  const canScoreFor = (playerId: string): boolean => {
+    if (isAdmin) return true
+    if (!identityPlayerId) return false
+    const targetPlayer = tournamentPlayers?.find(tp => tp.id === playerId)
+    return targetPlayer?.group_number === identityGroupNumber
+  }
+
+  // Check if currently editing someone else's score
+  const isEditingOther = currentPlayerId && identityPlayerId && currentPlayerId !== identityPlayerId
+  const editingPlayer = tournamentPlayers?.find(tp => tp.id === currentPlayerId)
+
+  // Handle player selection with permission check
+  const handlePlayerSelect = (playerId: string) => {
+    if (canScoreFor(playerId)) {
+      setCurrentPlayer(playerId)
+    } else {
+      // Need admin access
+      setPendingPlayerId(playerId)
+      setShowPinDialog(true)
+    }
+  }
+
+  // Handle admin PIN submission
+  const handlePinSubmit = () => {
+    if (!tournament) return
+    if (verifyAdminPin(pinInput, tournament.admin_pin)) {
+      setShowPinDialog(false)
+      setPinInput('')
+      setPinError('')
+      if (pendingPlayerId) {
+        setCurrentPlayer(pendingPlayerId)
+        setPendingPlayerId(null)
+      }
+    } else {
+      setPinError('Incorrect PIN')
+    }
+  }
 
   // Fetch course and holes for current round
   const roundWithCourse = useLiveQuery(
@@ -289,25 +371,33 @@ export function ScoringPage() {
     )
   }
 
-  // No player selected
-  if (!currentPlayerId) {
+  // No identity set - ask who they are
+  if (!identityPlayerId) {
     return (
       <div className="flex h-full flex-col items-center justify-center p-4">
         <Card className="w-full max-w-sm">
           <CardHeader>
-            <CardTitle>Select Player</CardTitle>
+            <CardTitle>Who are you?</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Select your name to start scoring. You'll be able to enter scores for yourself and your group members.
+            </p>
             {tournamentPlayers && tournamentPlayers.length > 0 ? (
-              <Select onValueChange={setCurrentPlayer} value={currentPlayerId || undefined}>
+              <Select onValueChange={setIdentityPlayer} value={identityPlayerId || undefined}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Who's scoring?" />
+                  <SelectValue placeholder="Select your name" />
                 </SelectTrigger>
                 <SelectContent>
-                  {tournamentPlayers.map(tp => (
-                    <SelectItem key={tp.id} value={tp.id}>
-                      {tp.player?.name || 'Unknown'}
-                    </SelectItem>
+                  {Object.entries(playersByGroup).map(([groupNum, players]) => (
+                    <SelectGroup key={groupNum}>
+                      <SelectLabel>Group {groupNum}</SelectLabel>
+                      {players?.map(tp => (
+                        <SelectItem key={tp.id} value={tp.id}>
+                          {tp.player?.name || 'Unknown'}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   ))}
                 </SelectContent>
               </Select>
@@ -330,21 +420,54 @@ export function ScoringPage() {
     )
   }
 
+  // No player selected for scoring (shouldn't happen with identity set, but just in case)
+  if (!currentPlayerId) {
+    setCurrentPlayer(identityPlayerId)
+    return null
+  }
+
   return (
     <div className="flex h-full flex-col">
       {/* Header with player/round selection */}
       <div className="border-b bg-muted/30 px-4 py-2">
         <div className="flex items-center justify-between text-sm">
-          <Select onValueChange={setCurrentPlayer} value={currentPlayerId}>
+          <Select onValueChange={handlePlayerSelect} value={currentPlayerId}>
             <SelectTrigger className="h-8 w-auto border-none bg-transparent px-2 font-medium">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {tournamentPlayers?.map(tp => (
-                <SelectItem key={tp.id} value={tp.id}>
-                  {tp.player?.name || 'Unknown'}
-                </SelectItem>
-              ))}
+              {/* Show identity player's group first */}
+              {identityGroupNumber && playersByGroup[identityGroupNumber] && (
+                <SelectGroup>
+                  <SelectLabel className="flex items-center gap-1">
+                    <Users className="h-3 w-3" />
+                    Your Group ({identityGroupNumber})
+                  </SelectLabel>
+                  {playersByGroup[identityGroupNumber]?.map(tp => (
+                    <SelectItem key={tp.id} value={tp.id}>
+                      {tp.player?.name || 'Unknown'}
+                      {tp.id === identityPlayerId && ' (You)'}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
+              {/* Show other groups for admins or with lock icon */}
+              {Object.entries(playersByGroup)
+                .filter(([groupNum]) => Number(groupNum) !== identityGroupNumber)
+                .map(([groupNum, players]) => (
+                  <SelectGroup key={groupNum}>
+                    <SelectLabel className="flex items-center gap-1">
+                      {!isAdmin && <Lock className="h-3 w-3" />}
+                      {isAdmin && <Shield className="h-3 w-3" />}
+                      Group {groupNum}
+                    </SelectLabel>
+                    {players?.map(tp => (
+                      <SelectItem key={tp.id} value={tp.id}>
+                        {tp.player?.name || 'Unknown'}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
             </SelectContent>
           </Select>
           <Select onValueChange={setCurrentRound} value={currentRoundId || undefined}>
@@ -361,6 +484,27 @@ export function ScoringPage() {
           </Select>
         </div>
       </div>
+
+      {/* Indicator when editing someone else's scores */}
+      {isEditingOther && (
+        <div className={cn(
+          "flex items-center justify-center gap-2 py-2 text-sm",
+          isAdmin ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700"
+        )}>
+          {isAdmin ? <Shield className="h-4 w-4" /> : <Users className="h-4 w-4" />}
+          <span>
+            Entering scores for <strong>{editingPlayer?.player?.name}</strong>
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs"
+            onClick={() => setCurrentPlayer(identityPlayerId)}
+          >
+            Back to me
+          </Button>
+        </div>
+      )}
 
       {/* Total Score Display */}
       <div className="flex items-center justify-center gap-6 border-b py-3">
@@ -447,6 +591,44 @@ export function ScoringPage() {
         )}
       </div>
 
+      {/* Admin PIN Dialog */}
+      <Dialog open={showPinDialog} onOpenChange={(open) => {
+        setShowPinDialog(open)
+        if (!open) {
+          setPinInput('')
+          setPinError('')
+          setPendingPlayerId(null)
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Admin Access Required</DialogTitle>
+            <DialogDescription>
+              Enter the admin PIN to edit scores for players outside your group
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="pin">Admin PIN</Label>
+              <Input
+                id="pin"
+                type="password"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit()}
+                className="text-center text-2xl tracking-widest"
+              />
+              {pinError && <p className="text-sm text-destructive">{pinError}</p>}
+            </div>
+            <Button className="w-full" onClick={handlePinSubmit}>
+              Verify PIN
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
