@@ -2,12 +2,21 @@ import { db, type LocalScore, type SyncQueueItem } from '@/lib/db/schema'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { isOnline } from '@/lib/utils'
 
-type SyncStatus = 'idle' | 'syncing' | 'error'
-type SyncListener = (status: SyncStatus, pendingCount: number) => void
+export type SyncStatus = 'idle' | 'syncing' | 'error'
+
+export interface SyncError {
+  message: string
+  details?: string
+  failedCount: number
+  timestamp: Date
+}
+
+type SyncListener = (status: SyncStatus, pendingCount: number, error: SyncError | null) => void
 
 class SyncManager {
   private listeners: Set<SyncListener> = new Set()
   private status: SyncStatus = 'idle'
+  private lastError: SyncError | null = null
   private syncInProgress = false
   private retryTimeout: ReturnType<typeof setTimeout> | null = null
 
@@ -28,7 +37,7 @@ class SyncManager {
 
   private async notifyListeners() {
     const pendingCount = await this.getPendingCount()
-    this.listeners.forEach(listener => listener(this.status, pendingCount))
+    this.listeners.forEach(listener => listener(this.status, pendingCount, this.lastError))
   }
 
   private async getPendingCount(): Promise<number> {
@@ -100,10 +109,56 @@ class SyncManager {
     try {
       await this.syncScores()
       await this.syncQueueItems()
-      this.status = 'idle'
+
+      // Check if any items failed during sync
+      const failedScores = await db.scores
+        .where('sync_status')
+        .equals('error')
+        .count()
+
+      if (failedScores > 0) {
+        this.status = 'error'
+        this.lastError = {
+          message: 'Some scores failed to sync',
+          details: `${failedScores} score(s) could not be saved to the server. Your data is saved locally.`,
+          failedCount: failedScores,
+          timestamp: new Date()
+        }
+      } else {
+        this.status = 'idle'
+        this.lastError = null
+      }
     } catch (error) {
       console.error('[SyncManager] Sync error:', error)
       this.status = 'error'
+
+      // Determine the error message
+      let errorMessage = 'Sync failed'
+      let errorDetails = 'Unable to connect to the server. Your data is saved locally and will sync when connection is restored.'
+
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          errorMessage = 'Network error'
+          errorDetails = 'Unable to reach the server. Check your internet connection.'
+        } else if (error.message.includes('401') || error.message.includes('403')) {
+          errorMessage = 'Authentication error'
+          errorDetails = 'Server rejected the request. The database may not be configured correctly.'
+        } else if (error.message.includes('404')) {
+          errorMessage = 'Database not found'
+          errorDetails = 'The database tables may not exist. Please run the schema setup.'
+        } else {
+          errorDetails = error.message
+        }
+      }
+
+      const pendingCount = await this.getPendingCount()
+      this.lastError = {
+        message: errorMessage,
+        details: errorDetails,
+        failedCount: pendingCount,
+        timestamp: new Date()
+      }
+
       // Retry after 30 seconds
       this.retryTimeout = setTimeout(() => this.startSync(), 30000)
     } finally {
@@ -148,12 +203,41 @@ class SyncManager {
         })
       } catch (error) {
         console.error('[SyncManager] Error syncing score:', error)
+        let errorMessage = 'Unknown error'
+        if (error instanceof Error) {
+          // Make error messages more user-friendly
+          if (error.message.includes('violates foreign key constraint')) {
+            errorMessage = 'Related data (player/round) not found on server'
+          } else if (error.message.includes('violates check constraint')) {
+            errorMessage = 'Invalid score value'
+          } else {
+            errorMessage = error.message
+          }
+        }
         await db.scores.update(score.id, {
           sync_status: 'error',
-          error_message: error instanceof Error ? error.message : 'Unknown error'
+          error_message: errorMessage
         })
       }
     }
+  }
+
+  /**
+   * Clear the last error and reset status to idle
+   */
+  clearError(): void {
+    this.lastError = null
+    if (this.status === 'error') {
+      this.status = 'idle'
+    }
+    this.notifyListeners()
+  }
+
+  /**
+   * Get the last sync error
+   */
+  getLastError(): SyncError | null {
+    return this.lastError
   }
 
   /**

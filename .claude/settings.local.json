@@ -8,7 +8,8 @@
       "Bash(PATH=\"$HOME/.local/node/bin:$PATH\" npm run build:*)",
       "Bash(PATH=\"$HOME/.local/node/bin:$PATH\" npm run dev:*)",
       "Bash(npm install:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

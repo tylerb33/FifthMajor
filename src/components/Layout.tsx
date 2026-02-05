@@ -3,6 +3,7 @@ import { Trophy, Users, Flag, ClipboardList, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTournamentStore } from '@/stores/tournamentStore'
 import { SyncIndicator } from './SyncIndicator'
+import { Toaster } from './Toaster'
 
 const navItems = [
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
@@ -85,6 +86,9 @@ export function Layout({ children }: LayoutProps) {
           </div>
         </nav>
       )}
+
+      {/* Toast notifications */}
+      <Toaster />
     </div>
   )
 }

@@ -141,3 +141,38 @@ body {
   animation: score-pop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards,
              score-pop-out 2s ease-in forwards;
 }
+
+/* Toast animations */
+@keyframes toast-slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-slide-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+[data-radix-toast-viewport] [data-state="open"] {
+  animation: toast-slide-in 0.3s ease-out;
+}
+
+[data-radix-toast-viewport] [data-state="closed"] {
+  animation: toast-slide-out 0.2s ease-in forwards;
+}
+
+[data-radix-toast-viewport] [data-swipe="end"] {
+  animation: toast-slide-out 0.2s ease-out forwards;
+}
