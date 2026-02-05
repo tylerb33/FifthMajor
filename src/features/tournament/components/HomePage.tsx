@@ -124,9 +124,6 @@ export function HomePage() {
 
         {/* Create Tournament */}
         <div className="text-center p-6 rounded-lg bg-gradient-to-br from-amber-50/50 to-transparent border border-amber-200/30">
-          <p className="mb-3 text-sm text-muted-foreground">
-            Or start a new tournament
-          </p>
           <Button
             variant="outline"
             className="w-full border-primary/20 hover:bg-primary/5"
