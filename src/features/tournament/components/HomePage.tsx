@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { useTournamentStore } from '@/stores/tournamentStore'
 import { db } from '@/lib/db/schema'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { syncManager } from '@/lib/sync/SyncManager'
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -56,6 +57,9 @@ export function HomePage() {
           ...data,
           synced_at: new Date().toISOString()
         })
+
+        // Pull all related data (players, rounds, scores, etc.)
+        await syncManager.pullFromServer(data.id)
 
         setCurrentTournament(data.id)
         navigate('/leaderboard')
