@@ -279,6 +279,8 @@ export function SettingsPage() {
         tournamentId={currentTournamentId!}
         courses={courses || []}
         existingRounds={rounds?.length || 0}
+        tournamentStartDate={tournament.start_date}
+        tournamentEndDate={tournament.end_date}
       />
 
       {/* Edit Course Dialog */}
@@ -515,9 +517,19 @@ interface AddRoundDialogProps {
   tournamentId: string
   courses: { id: string; name: string }[]
   existingRounds: number
+  tournamentStartDate: string
+  tournamentEndDate: string
 }
 
-function AddRoundDialog({ open, onOpenChange, tournamentId, courses, existingRounds }: AddRoundDialogProps) {
+function AddRoundDialog({
+  open,
+  onOpenChange,
+  tournamentId,
+  courses,
+  existingRounds,
+  tournamentStartDate,
+  tournamentEndDate
+}: AddRoundDialogProps) {
   const [courseId, setCourseId] = useState('')
   const [date, setDate] = useState('')
   const [isAdding, setIsAdding] = useState(false)
@@ -597,7 +609,12 @@ function AddRoundDialog({ open, onOpenChange, tournamentId, courses, existingRou
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
+              min={tournamentStartDate}
+              max={tournamentEndDate}
             />
+            <p className="text-xs text-muted-foreground">
+              Must be between {tournamentStartDate} and {tournamentEndDate}
+            </p>
           </div>
           <Button className="w-full" onClick={handleAdd} disabled={isAdding || !courseId || !date}>
             {isAdding ? 'Adding...' : 'Add Round'}
