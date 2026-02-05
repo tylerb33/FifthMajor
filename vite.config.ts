@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      includeAssets: ['FifthMajorLogo.png', 'golf-icon.svg'],
       manifest: {
         name: 'FifthMajor - Golf Tournament Scoring',
         short_name: 'FifthMajor',
@@ -19,20 +19,20 @@ export default defineConfig({
         orientation: 'portrait',
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: 'FifthMajorLogo.png',
+            sizes: '512x512',
+            type: 'image/png'
+          },
+          {
+            src: 'FifthMajorLogo.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
-          },
-          {
-            src: 'pwa-512x512.png',
+            src: 'FifthMajorLogo.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'any'
           }
         ]
       },
