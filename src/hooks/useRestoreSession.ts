@@ -14,7 +14,7 @@ import { isOnline } from '@/lib/utils'
  * This ensures the app recovers gracefully after a hard refresh.
  */
 export function useRestoreSession() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const {
     currentTournamentId,
     setCurrentTournament,
@@ -25,6 +25,19 @@ export function useRestoreSession() {
   } = useTournamentStore()
   const [isRestoring, setIsRestoring] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hasAttemptedRestore, setHasAttemptedRestore] = useState(false)
+
+  // Helper to clear session AND URL params to prevent loops
+  const clearSessionAndUrl = () => {
+    clearSession()
+    // Clear URL params to prevent restore loop
+    const params = new URLSearchParams(searchParams)
+    params.delete('t')
+    params.delete('r')
+    params.delete('p')
+    params.delete('i')
+    setSearchParams(params, { replace: true })
+  }
 
   useEffect(() => {
     async function restoreIfNeeded() {
@@ -38,6 +51,10 @@ export function useRestoreSession() {
       const tournamentId = urlTournamentId || currentTournamentId
 
       if (!tournamentId) return
+
+      // Prevent infinite restore loops
+      if (hasAttemptedRestore) return
+      setHasAttemptedRestore(true)
 
       // If URL has tournament ID but store doesn't, restore to store
       if (urlTournamentId && urlTournamentId !== currentTournamentId) {
@@ -72,7 +89,7 @@ export function useRestoreSession() {
 
         if (!isSupabaseConfigured()) {
           setError('Server not configured. Unable to restore tournament data.')
-          clearSession()
+          clearSessionAndUrl()
           return
         }
 
@@ -86,10 +103,10 @@ export function useRestoreSession() {
         const restoredTournament = await db.tournaments.get(tournamentId)
 
         if (!restoredTournament) {
-          // Tournament doesn't exist on server either - clear the stale session
+          // Tournament doesn't exist on server either - clear the stale session and URL
           console.warn('[useRestoreSession] Tournament not found on server, clearing session')
           setError('Tournament not found. It may have been deleted.')
-          clearSession()
+          clearSessionAndUrl()
         } else {
           console.log('[useRestoreSession] Successfully restored tournament data')
         }
