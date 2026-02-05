@@ -1,9 +1,10 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Trophy, Users, Flag, ClipboardList, Settings } from 'lucide-react'
+import { Trophy, Users, Flag, ClipboardList, Settings, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTournamentStore } from '@/stores/tournamentStore'
 import { SyncIndicator } from './SyncIndicator'
 import { Toaster } from './Toaster'
+import { useRestoreSession } from '@/hooks/useRestoreSession'
 
 const navItems = [
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
@@ -23,6 +24,7 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const { currentTournamentId } = useTournamentStore()
+  const { isRestoring, error: restoreError } = useRestoreSession()
 
   // Don't show nav on home/join screens
   const showNav = currentTournamentId && !['/', '/join', '/create'].includes(location.pathname)
@@ -57,7 +59,25 @@ export function Layout({ children }: LayoutProps) {
         // Swipeable view manages its own bottom padding for the dot indicators
         isSwipeableRoute ? "pb-16" : "pb-20"
       )}>
-        {children}
+        {isRestoring ? (
+          <div className="flex min-h-[calc(100vh-7rem)] items-center justify-center p-4">
+            <div className="text-center">
+              <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+              <p className="mt-4 text-muted-foreground">Restoring tournament data...</p>
+            </div>
+          </div>
+        ) : restoreError ? (
+          <div className="flex min-h-[calc(100vh-7rem)] items-center justify-center p-4">
+            <div className="text-center">
+              <p className="text-destructive">{restoreError}</p>
+              <Link to="/" className="mt-4 inline-block text-primary hover:underline">
+                Return to home
+              </Link>
+            </div>
+          </div>
+        ) : (
+          children
+        )}
       </main>
 
       {/* Bottom navigation */}
