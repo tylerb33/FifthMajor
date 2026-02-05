@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Select,
@@ -14,8 +13,13 @@ import { cn } from '@/lib/utils'
 import { getScoreClass, formatScoreToPar } from '@/lib/utils/scoring'
 
 export function ScorecardPage() {
-  const { currentTournamentId, currentRoundId, setCurrentRound } = useTournamentStore()
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null)
+  const {
+    currentTournamentId,
+    currentRoundId,
+    currentPlayerId,
+    setCurrentRound,
+    setCurrentPlayer
+  } = useTournamentStore()
 
   // Fetch rounds
   const rounds = useLiveQuery(
@@ -71,19 +75,19 @@ export function ScorecardPage() {
   // Fetch scores for selected player and round
   const scores = useLiveQuery(
     async () => {
-      if (!currentRoundId || !selectedPlayerId) return []
+      if (!currentRoundId || !currentPlayerId) return []
       return db.scores
         .where('[round_id+tournament_player_id+hole_number]')
         .between(
-          [currentRoundId, selectedPlayerId, 0],
-          [currentRoundId, selectedPlayerId, 19]
+          [currentRoundId, currentPlayerId, 0],
+          [currentRoundId, currentPlayerId, 19]
         )
         .toArray()
     },
-    [currentRoundId, selectedPlayerId]
+    [currentRoundId, currentPlayerId]
   )
 
-  const selectedPlayer = tournamentPlayers?.find(tp => tp.id === selectedPlayerId)
+  const selectedPlayer = tournamentPlayers?.find(tp => tp.id === currentPlayerId)
 
   // Calculate totals
   const frontNine = courseData?.holes.filter(h => h.hole_number <= 9) || []
@@ -120,8 +124,8 @@ export function ScorecardPage() {
         </Select>
 
         <Select
-          value={selectedPlayerId || undefined}
-          onValueChange={setSelectedPlayerId}
+          value={currentPlayerId || undefined}
+          onValueChange={setCurrentPlayer}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select player" />
@@ -136,7 +140,7 @@ export function ScorecardPage() {
         </Select>
       </div>
 
-      {currentRoundId && selectedPlayerId && courseData ? (
+      {currentRoundId && currentPlayerId && courseData ? (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center justify-between">

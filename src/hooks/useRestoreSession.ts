@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTournamentStore } from '@/stores/tournamentStore'
 import { syncManager } from '@/lib/sync/SyncManager'
 import { db } from '@/lib/db/schema'
@@ -7,23 +8,54 @@ import { isOnline } from '@/lib/utils'
 
 /**
  * Hook that restores tournament data from Supabase when:
- * - A tournament ID is stored in localStorage
+ * - A tournament ID is stored in localStorage or URL params
  * - But the tournament data is missing from IndexedDB (e.g., after cache clear)
  *
  * This ensures the app recovers gracefully after a hard refresh.
  */
 export function useRestoreSession() {
-  const { currentTournamentId, clearSession } = useTournamentStore()
+  const [searchParams] = useSearchParams()
+  const {
+    currentTournamentId,
+    setCurrentTournament,
+    setCurrentRound,
+    setCurrentPlayer,
+    setIdentityPlayer,
+    clearSession
+  } = useTournamentStore()
   const [isRestoring, setIsRestoring] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function restoreIfNeeded() {
-      if (!currentTournamentId) return
+      // Check URL params first as they're more reliable than localStorage
+      const urlTournamentId = searchParams.get('t')
+      const urlRoundId = searchParams.get('r')
+      const urlPlayerId = searchParams.get('p')
+      const urlIdentityId = searchParams.get('i')
+
+      // Use URL tournament ID if available, otherwise fall back to store
+      const tournamentId = urlTournamentId || currentTournamentId
+
+      if (!tournamentId) return
+
+      // If URL has tournament ID but store doesn't, restore to store
+      if (urlTournamentId && urlTournamentId !== currentTournamentId) {
+        setCurrentTournament(urlTournamentId)
+      }
+      if (urlRoundId) {
+        setCurrentRound(urlRoundId)
+      }
+      if (urlPlayerId) {
+        setCurrentPlayer(urlPlayerId)
+      }
+      if (urlIdentityId) {
+        setIdentityPlayer(urlIdentityId)
+      }
 
       try {
         // Check if tournament exists in local DB
-        const localTournament = await db.tournaments.get(currentTournamentId)
+        const localTournament = await db.tournaments.get(tournamentId)
 
         if (localTournament) {
           // Data exists locally, nothing to restore
@@ -48,10 +80,10 @@ export function useRestoreSession() {
         setError(null)
 
         // Pull tournament data from Supabase
-        await syncManager.pullFromServer(currentTournamentId)
+        await syncManager.pullFromServer(tournamentId)
 
         // Verify data was restored
-        const restoredTournament = await db.tournaments.get(currentTournamentId)
+        const restoredTournament = await db.tournaments.get(tournamentId)
 
         if (!restoredTournament) {
           // Tournament doesn't exist on server either - clear the stale session
@@ -70,7 +102,8 @@ export function useRestoreSession() {
     }
 
     restoreIfNeeded()
-  }, [currentTournamentId, clearSession])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, currentTournamentId])
 
   return { isRestoring, error }
 }

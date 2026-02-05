@@ -5,6 +5,7 @@ import { useTournamentStore } from '@/stores/tournamentStore'
 import { SyncIndicator } from './SyncIndicator'
 import { Toaster } from './Toaster'
 import { useRestoreSession } from '@/hooks/useRestoreSession'
+import { useUrlState } from '@/hooks/useUrlState'
 
 const navItems = [
   { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
@@ -25,6 +26,9 @@ export function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const { currentTournamentId } = useTournamentStore()
   const { isRestoring, error: restoreError } = useRestoreSession()
+
+  // Sync state with URL params
+  useUrlState()
 
   // Don't show nav on home/join screens
   const showNav = currentTournamentId && !['/', '/join', '/create'].includes(location.pathname)
